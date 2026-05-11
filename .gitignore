@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+Package.resolved
+TufteNotes.app/
+*.xcodeproj/
+DerivedData/
+.DS_Store

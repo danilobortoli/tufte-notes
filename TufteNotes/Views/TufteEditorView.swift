@@ -21,7 +21,7 @@ struct TufteEditorView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground")
 
-        if let url = Bundle.main.url(forResource: "editor", withExtension: "html") {
+        if let url = Bundle.module.url(forResource: "editor", withExtension: "html") {
             webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         }
         context.coordinator.pendingMarkdown = initialMarkdown

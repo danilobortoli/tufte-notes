@@ -35,23 +35,32 @@ TufteNotes/
 
 ## Building it
 
-I scaffolded the source files but not the `.xcodeproj` (those are finicky to
-hand-roll). To run it:
+The project is a Swift Package — no Xcode GUI needed. You do need the Swift
+toolchain on macOS (`xcode-select --install` is enough; full Xcode also works).
 
-1. **Open Xcode** → File → New → Project → **macOS** → **App**.
-2. Product Name: `TufteNotes`. Interface: **SwiftUI**. Language: **Swift**.
-3. Save it somewhere outside this repo (or inside, your call), then **close** it.
-4. Replace the generated `TufteNotesApp.swift` and `ContentView.swift` with the
-   ones in this repo's `TufteNotes/` folder.
-5. Drag `Models/`, `Views/`, and `Resources/` from this repo into the Xcode
-   project navigator. When prompted, choose **Create groups** and tick **Copy
-   items if needed** + the app target.
-6. For `Resources/` make sure the files end up in **Copy Bundle Resources** under
-   the target's Build Phases (drag-and-drop usually handles this, but verify
-   `editor.html`, `tufte.css`, and `editor.js` are listed there).
-7. In Signing & Capabilities, set a development team. The app reads/writes
-   `~/Documents/TufteNotes/`, which is allowed under the default App Sandbox.
-8. ⌘R to run.
+```sh
+./build-app.sh          # release build → TufteNotes.app in repo root
+./build-app.sh --run    # build + launch
+./build-app.sh --debug  # debug build
+```
+
+What the script does:
+
+1. `swift build -c release` produces the binary in `.build/release/`.
+2. It assembles a `TufteNotes.app` bundle next to the repo: copies the binary
+   into `Contents/MacOS/`, copies the SPM-generated resource bundle
+   (`TufteNotes_TufteNotes.bundle`) into `Contents/Resources/`, writes an
+   `Info.plist`, and ad-hoc codesigns so Gatekeeper lets it launch.
+
+First-run Gatekeeper note: an ad-hoc signed `.app` opens cleanly on the same
+Mac it was built on, but if you copy it elsewhere you'll get the "unidentified
+developer" dialog — right-click → Open the first time to bypass.
+
+### Or use Xcode if you prefer
+
+You can also open `Package.swift` directly in Xcode (File → Open → pick
+`Package.swift`). Xcode treats SwiftPM packages as first-class projects: hit ⌘R
+and it'll build and run the executable target.
 
 ## Editor cheatsheet
 
