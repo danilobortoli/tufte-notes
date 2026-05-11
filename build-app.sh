@@ -35,6 +35,16 @@ fi
 
 REPO_DIR="$(pwd)"
 
+# If a previous instance is still running, `open` would just focus it and
+# you'd see stale code. Quit any running TufteNotes before we rebuild.
+if pgrep -x "$APP_NAME" >/dev/null 2>&1; then
+    echo "==> Quitting running $APP_NAME"
+    osascript -e "tell application \"$APP_NAME\" to quit" >/dev/null 2>&1 || true
+    # Give it a moment, then force-kill anything left.
+    sleep 0.5
+    pkill -x "$APP_NAME" 2>/dev/null || true
+fi
+
 # SwiftPM and the Swift compiler are unhappy when the source tree:
 #   (a) contains spaces in its path (llbuild "stat error"), or
 #   (b) lives inside an iCloud-synced location like ~/Documents
@@ -133,9 +143,11 @@ if command -v codesign >/dev/null 2>&1; then
     codesign --force --deep --sign - "$APP_DIR" >/dev/null
 fi
 
-echo "==> Done: $APP_DIR"
+echo "==> Done: $APP_DIR  (binary mtime: $(stat -f '%Sm' "$APP_DIR/Contents/MacOS/$APP_NAME"))"
 
 if [[ "$RUN_AFTER" -eq 1 ]]; then
     echo "==> Launching"
-    open "$APP_DIR"
+    # -n forces a new instance even if LaunchServices thinks one exists.
+    # -F resets state (saved windows etc.) so we always see a fresh launch.
+    open -n -F "$APP_DIR"
 fi
