@@ -8,6 +8,7 @@
 #   ./build-app.sh --debug         # debug build
 #   ./build-app.sh --run           # build then launch the .app
 #   ./build-app.sh --debug --run
+#   ./build-app.sh --in-place      # build in the repo dir (no /tmp staging)
 
 set -euo pipefail
 
@@ -15,12 +16,14 @@ APP_NAME="TufteNotes"
 BUNDLE_ID="com.tuftenotes.app"
 CONFIG="release"
 RUN_AFTER=0
+IN_PLACE=0
 
 for arg in "$@"; do
     case "$arg" in
         --debug) CONFIG="debug" ;;
         --release) CONFIG="release" ;;
         --run) RUN_AFTER=1 ;;
+        --in-place) IN_PLACE=1 ;;
         *) echo "Unknown flag: $arg" >&2; exit 1 ;;
     esac
 done
@@ -32,21 +35,38 @@ fi
 
 REPO_DIR="$(pwd)"
 
-# SwiftPM has historical issues with paths containing spaces (llbuild
-# emits "stat error: No such file or directory" during graph evaluation).
-# If we detect a space, build in a no-space symlink under /tmp instead.
-if [[ "$REPO_DIR" == *" "* ]]; then
-    echo "==> Path contains a space; building in /tmp via symlink to avoid SwiftPM bugs"
-    LINK_DIR="/tmp/tufte-notes-build-$$"
-    rm -f "$LINK_DIR"
-    ln -s "$REPO_DIR" "$LINK_DIR"
-    BUILD_CWD="$LINK_DIR"
-    trap 'rm -f "$LINK_DIR"' EXIT
+# SwiftPM and the Swift compiler are unhappy when the source tree:
+#   (a) contains spaces in its path (llbuild "stat error"), or
+#   (b) lives inside an iCloud-synced location like ~/Documents
+#       (file mtimes change mid-build → "input file was modified during
+#        the build" errors and cascading false-positive diagnostics).
+# To dodge both, by default we stage sources into /tmp and build there.
+# Pass --in-place to disable.
+
+needs_staging() {
+    [[ "$REPO_DIR" == *" "* ]] && return 0
+    [[ "$REPO_DIR" == "$HOME/Documents"* ]] && return 0
+    [[ "$REPO_DIR" == "$HOME/Desktop"* ]] && return 0
+    return 1
+}
+
+if [[ "$IN_PLACE" -eq 0 ]] && needs_staging; then
+    STAGE="/tmp/tufte-notes-build"
+    echo "==> Staging sources to $STAGE (avoids iCloud/space-in-path issues)"
+    mkdir -p "$STAGE"
+    rsync -a --delete \
+        --exclude='.build' \
+        --exclude='.git' \
+        --exclude='TufteNotes.app' \
+        --exclude='.swiftpm' \
+        --exclude='.DS_Store' \
+        "$REPO_DIR/" "$STAGE/"
+    BUILD_CWD="$STAGE"
 else
     BUILD_CWD="$REPO_DIR"
 fi
 
-echo "==> swift build -c $CONFIG"
+echo "==> swift build -c $CONFIG  (in $BUILD_CWD)"
 ( cd "$BUILD_CWD" && swift build -c "$CONFIG" )
 
 BUILD_DIR="$( cd "$BUILD_CWD" && swift build -c "$CONFIG" --show-bin-path )"
