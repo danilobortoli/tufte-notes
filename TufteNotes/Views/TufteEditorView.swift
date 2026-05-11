@@ -305,22 +305,16 @@ struct TufteWebView: NSViewRepresentable {
             webView.evaluateJavaScript("window.tufte.load(`\(escaped)`);", completionHandler: nil)
         }
 
-        nonisolated func userContentController(_ userContentController: WKUserContentController,
-                                                didReceive message: WKScriptMessage) {
+        func userContentController(_ userContentController: WKUserContentController,
+                                   didReceive message: WKScriptMessage) {
             switch message.name {
             case "save":
                 guard let md = message.body as? String else { return }
-                Task { @MainActor in
-                    self.store?.update(self.noteID, body: md)
-                }
+                store?.update(noteID, body: md)
             case "stats":
                 guard let dict = message.body as? [String: Any] else { return }
-                let words = dict["words"] as? Int ?? 0
-                let chars = dict["chars"] as? Int ?? 0
-                Task { @MainActor in
-                    self.controller.wordCount = words
-                    self.controller.charCount = chars
-                }
+                controller.wordCount = dict["words"] as? Int ?? 0
+                controller.charCount = dict["chars"] as? Int ?? 0
             default:
                 break
             }

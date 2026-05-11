@@ -30,10 +30,26 @@ if [[ "$(uname)" != "Darwin" ]]; then
     exit 1
 fi
 
-echo "==> swift build -c $CONFIG"
-swift build -c "$CONFIG"
+REPO_DIR="$(pwd)"
 
-BUILD_DIR="$(swift build -c "$CONFIG" --show-bin-path)"
+# SwiftPM has historical issues with paths containing spaces (llbuild
+# emits "stat error: No such file or directory" during graph evaluation).
+# If we detect a space, build in a no-space symlink under /tmp instead.
+if [[ "$REPO_DIR" == *" "* ]]; then
+    echo "==> Path contains a space; building in /tmp via symlink to avoid SwiftPM bugs"
+    LINK_DIR="/tmp/tufte-notes-build-$$"
+    rm -f "$LINK_DIR"
+    ln -s "$REPO_DIR" "$LINK_DIR"
+    BUILD_CWD="$LINK_DIR"
+    trap 'rm -f "$LINK_DIR"' EXIT
+else
+    BUILD_CWD="$REPO_DIR"
+fi
+
+echo "==> swift build -c $CONFIG"
+( cd "$BUILD_CWD" && swift build -c "$CONFIG" )
+
+BUILD_DIR="$( cd "$BUILD_CWD" && swift build -c "$CONFIG" --show-bin-path )"
 BIN="$BUILD_DIR/$APP_NAME"
 RES_BUNDLE="$BUILD_DIR/${APP_NAME}_${APP_NAME}.bundle"
 
@@ -42,7 +58,7 @@ if [[ ! -x "$BIN" ]]; then
     exit 1
 fi
 
-APP_DIR="$APP_NAME.app"
+APP_DIR="$REPO_DIR/$APP_NAME.app"
 echo "==> Assembling $APP_DIR"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
@@ -92,15 +108,12 @@ cat > "$APP_DIR/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad-hoc sign so Gatekeeper doesn't outright refuse the binary on launch.
-# This won't satisfy notarization — for sharing, you'd sign with a real
-# Developer ID and run `xcrun notarytool`.
 if command -v codesign >/dev/null 2>&1; then
     echo "==> ad-hoc codesign"
     codesign --force --deep --sign - "$APP_DIR" >/dev/null
 fi
 
-echo "==> Done: $(pwd)/$APP_DIR"
+echo "==> Done: $APP_DIR"
 
 if [[ "$RUN_AFTER" -eq 1 ]]; then
     echo "==> Launching"
