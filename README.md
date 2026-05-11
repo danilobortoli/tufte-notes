@@ -1,96 +1,112 @@
-# tufte-notes
+# Tufte Notes
 
-A small macOS notes app with a Tufte-inspired writing surface. Notes are stored
-as plain Markdown files in `~/Documents/TufteNotes/`.
+Um app de notas para macOS inspirado em Edward Tufte: tipografia serifada,
+margens generosas, sidenotes na margem direita, editor estilo Medium que
+renderiza o estilo final enquanto você escreve. Notas ficam como arquivos
+Markdown em `~/Documents/TufteNotes/`.
 
-## What's in the box
+## Features
 
-- **SwiftUI macOS app** with a sidebar (`NavigationSplitView`) and a rich editor.
-- **WKWebView editor** that renders Markdown live in Tufte styling (ET Book–style
-  serif, generous margins, sidenotes in the right margin).
-- **Medium-style live transforms**: typing `# `, `## `, `- `, `> `, `---` at the
-  start of a line transforms the block in place.
-- **Sidenotes** via `^[text]` syntax — appears as a marginalia note next to the
-  paragraph (Tufte's signature element).
-- **Full-text search** in the sidebar.
-- **Auto-save** debounced at 350 ms; each note is a single `.md` file.
+- **Editor WYSIWYG estilo Tufte** num `WKWebView` com `contenteditable`.
+- **Toolbar de formatação** (negrito, itálico, código, H1–H3, listas, citação,
+  régua, sidenote) — botões + atalhos.
+- **Sidenotes** via sintaxe `^[texto]` ou pelo botão da toolbar.
+- **Tema** claro / escuro / seguir sistema (Preferências, ⌘,).
+- **Tamanho da fonte** ajustável em Preferências.
+- **Tags por nota** (frontmatter YAML simples) com filtros chip na sidebar.
+- **Fixar notas** (pin) — vão pro topo da lista.
+- **Busca global** (sidebar) e **busca dentro da nota** (⌘F) com highlight e
+  navegação prev/next.
+- **Contagem de palavras + tempo estimado de leitura** na barra de status.
+- **Exportar** para PDF (estilo Tufte renderizado), HTML standalone com CSS
+  embutido, ou cópia do Markdown.
+- **Auto-save** debounced em 350 ms — cada nota é um `.md` na pasta.
 
-## Project layout
+## Atalhos
+
+| Atalho      | Ação                       |
+| ----------- | -------------------------- |
+| ⌘N          | Nova nota                  |
+| ⌘,          | Preferências               |
+| ⌘B / ⌘I     | Negrito / Itálico          |
+| ⌥⌘1/2/3     | H1 / H2 / H3               |
+| ⇧⌘D         | Sidenote                   |
+| ⌘F          | Buscar nesta nota          |
+
+## Sintaxe de escrita
+
+| Você digita         | Vira                                       |
+| ------------------- | ------------------------------------------ |
+| `# `, `## `, `### ` | Cabeçalhos (transformam no espaço)         |
+| `- ` ou `* `        | Lista                                      |
+| `> `                | Citação                                    |
+| `---` + Enter       | Régua horizontal                           |
+| `**texto**`         | **negrito**                                |
+| `*texto*`           | *itálico*                                  |
+| `` `código` ``      | código inline                              |
+| `^[aside]`          | sidenote na margem direita                 |
+
+## Compilando
+
+Projeto SwiftPM — não precisa abrir o Xcode. Requer apenas Command Line Tools
+(`xcode-select --install`).
+
+```sh
+./build-app.sh          # build release → TufteNotes.app
+./build-app.sh --run    # build + abre
+./build-app.sh --debug  # debug
+```
+
+O script roda `swift build`, monta o `.app` bundle (binário em
+`Contents/MacOS/`, recursos em `Contents/Resources/`, `Info.plist` gerado),
+e codesigna ad-hoc para o Gatekeeper deixar abrir localmente.
+
+Também dá pra abrir `Package.swift` direto no Xcode (`File → Open → Package.swift`)
+e rodar com ⌘R.
+
+## Estrutura
 
 ```
 TufteNotes/
-├── TufteNotesApp.swift        # App entry, ⌘N shortcut, window config
-├── ContentView.swift          # NavigationSplitView root
+├── TufteNotesApp.swift          # @main, menus, Settings scene
+├── ContentView.swift            # NavigationSplitView root
 ├── Models/
-│   ├── Note.swift             # Note model
-│   └── NotesStore.swift       # Reads/writes ~/Documents/TufteNotes/*.md
+│   ├── Note.swift
+│   └── NotesStore.swift         # I/O dos .md + frontmatter (tags, pinned)
 ├── Views/
-│   ├── SidebarView.swift      # Search field + notes list + "New Note"
-│   └── TufteEditorView.swift  # NSViewRepresentable around WKWebView
+│   ├── SidebarView.swift        # Busca, filtro de tags, lista, pin
+│   ├── SettingsView.swift       # Preferências (tema, fonte, WPM)
+│   ├── EditorController.swift   # Ponte SwiftUI ↔ WKWebView + export
+│   └── TufteEditorView.swift    # Meta bar, toolbar, find bar, status bar
 └── Resources/
-    ├── editor.html            # Bare contenteditable shell
-    ├── tufte.css              # Tufte typography & sidenote layout
-    └── editor.js              # MD <-> HTML, live shortcuts, save bridge
+    ├── editor.html
+    ├── tufte.css                # Tema light/dark, font-size variável
+    └── editor.js                # MD ↔ HTML, formats, find, stats
 ```
 
-## Building it
+## Formato dos arquivos
 
-The project is a Swift Package — no Xcode GUI needed. You do need the Swift
-toolchain on macOS (`xcode-select --install` is enough; full Xcode also works).
+Cada nota é um `.md` com frontmatter opcional:
 
-```sh
-./build-app.sh          # release build → TufteNotes.app in repo root
-./build-app.sh --run    # build + launch
-./build-app.sh --debug  # debug build
+```markdown
+---
+tags: [filosofia, ensaio]
+pinned: true
+---
+# Sobre o estilo
+
+Conteúdo...
 ```
 
-What the script does:
+Sem tags e sem pin, o frontmatter é omitido — o arquivo é Markdown puro,
+versionável e legível por qualquer outro editor.
 
-1. `swift build -c release` produces the binary in `.build/release/`.
-2. It assembles a `TufteNotes.app` bundle next to the repo: copies the binary
-   into `Contents/MacOS/`, copies the SPM-generated resource bundle
-   (`TufteNotes_TufteNotes.bundle`) into `Contents/Resources/`, writes an
-   `Info.plist`, and ad-hoc codesigns so Gatekeeper lets it launch.
+## Limitações conhecidas
 
-First-run Gatekeeper note: an ad-hoc signed `.app` opens cleanly on the same
-Mac it was built on, but if you copy it elsewhere you'll get the "unidentified
-developer" dialog — right-click → Open the first time to bypass.
-
-### Or use Xcode if you prefer
-
-You can also open `Package.swift` directly in Xcode (File → Open → pick
-`Package.swift`). Xcode treats SwiftPM packages as first-class projects: hit ⌘R
-and it'll build and run the executable target.
-
-## Editor cheatsheet
-
-| You type            | You get                                        |
-| ------------------- | ---------------------------------------------- |
-| `# ` then text      | H1 title                                       |
-| `## ` then text     | H2 section                                     |
-| `### ` then text    | H3 subsection                                  |
-| `- ` then text      | Unordered list                                 |
-| `> ` then text      | Blockquote                                     |
-| `---` Enter         | Horizontal rule                                |
-| `**bold**`          | **bold** (rendered on next reload)             |
-| `*italic*`          | *italic*                                       |
-| `` `code` ``        | inline code                                    |
-| `^[an aside]`       | sidenote in the right margin                   |
-| ⌘N                  | New note                                       |
-
-## Where notes live
-
-`~/Documents/TufteNotes/` — every note is one `.md` file. You can edit them with
-any other editor, version them with git, drop a folder of existing notes there
-and the app picks them up on next launch.
-
-## Known sharp edges
-
-- The Markdown ↔ HTML round-trip is intentionally minimal (no tables, no
-  reference-style links, no nested lists). It handles the subset Tufte writing
-  actually uses.
-- The first paragraph after a heading shares the same column width — wide
-  digressions still go in `^[ ]` sidenotes.
-- ET Book is not bundled. The CSS falls back to *Iowan Old Style* → *Palatino* →
-  *Georgia*. To use ET Book, drop the OTF files into `Resources/` and add an
-  `@font-face` block to `tufte.css`.
+- Markdown ↔ HTML é um subset (sem tabelas, links reference-style, listas
+  aninhadas). Cobre o que escrita estilo Tufte normalmente pede.
+- ET Book não vem bundlado. Fallback: *Iowan Old Style* → *Palatino* → *Georgia*.
+  Pra usar ET Book, dropa os OTFs em `Resources/` e adiciona `@font-face` no
+  `tufte.css`.
+- O export PDF respeita o tema atual da janela — exporte em modo claro se
+  quiser PDF de fundo bege Tufte clássico.

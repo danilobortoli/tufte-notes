@@ -4,8 +4,12 @@ struct Note: Identifiable, Hashable {
     let id: UUID
     var url: URL
     var title: String
-    var body: String
+    var body: String        // sem frontmatter
+    var tags: [String]
+    var pinned: Bool
     var modifiedAt: Date
+
+    var filename: String { url.lastPathComponent }
 
     var preview: String {
         let stripped = body
