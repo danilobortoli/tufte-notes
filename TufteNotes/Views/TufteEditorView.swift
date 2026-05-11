@@ -96,7 +96,7 @@ struct TufteEditorView: View {
         HStack(spacing: 2) {
             ToolbarButton(icon: "bold",    help: "Negrito (⌘B)")     { controller.format("bold") }
             ToolbarButton(icon: "italic",  help: "Itálico (⌘I)")     { controller.format("italic") }
-            ToolbarButton(icon: "chevron.left.forwardslash.chevron.right",
+            ToolbarButton(icon: "curlybraces",
                           help: "Código inline") { controller.format("code") }
             ToolbarDivider()
             ToolbarTextButton(label: "H1", help: "Título 1 (⌥⌘1)")  { controller.format("h1") }
@@ -307,21 +307,22 @@ struct TufteWebView: NSViewRepresentable {
 
         nonisolated func userContentController(_ userContentController: WKUserContentController,
                                                 didReceive message: WKScriptMessage) {
-            let name = message.name
-            let body = message.body
-            Task { @MainActor in
-                switch name {
-                case "save":
-                    if let md = body as? String {
-                        self.store?.update(self.noteID, body: md)
-                    }
-                case "stats":
-                    if let dict = body as? [String: Any] {
-                        self.controller.wordCount = dict["words"] as? Int ?? 0
-                        self.controller.charCount = dict["chars"] as? Int ?? 0
-                    }
-                default: break
+            switch message.name {
+            case "save":
+                guard let md = message.body as? String else { return }
+                Task { @MainActor in
+                    self.store?.update(self.noteID, body: md)
                 }
+            case "stats":
+                guard let dict = message.body as? [String: Any] else { return }
+                let words = dict["words"] as? Int ?? 0
+                let chars = dict["chars"] as? Int ?? 0
+                Task { @MainActor in
+                    self.controller.wordCount = words
+                    self.controller.charCount = chars
+                }
+            default:
+                break
             }
         }
     }

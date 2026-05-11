@@ -1,6 +1,6 @@
 import Foundation
 import Combine
-import SwiftUI
+import AppKit
 
 @MainActor
 final class NotesStore: ObservableObject {
@@ -11,11 +11,17 @@ final class NotesStore: ObservableObject {
 
     let folder: URL
 
-    @AppStorage("pinnedFilenames") private var pinnedFilenamesData: Data = Data()
+    private static let pinnedKey = "pinnedFilenames"
 
     private var pinnedFilenames: Set<String> {
-        get { (try? JSONDecoder().decode(Set<String>.self, from: pinnedFilenamesData)) ?? [] }
-        set { pinnedFilenamesData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+        get {
+            let data = UserDefaults.standard.data(forKey: Self.pinnedKey) ?? Data()
+            return (try? JSONDecoder().decode(Set<String>.self, from: data)) ?? []
+        }
+        set {
+            let data = (try? JSONEncoder().encode(newValue)) ?? Data()
+            UserDefaults.standard.set(data, forKey: Self.pinnedKey)
+        }
     }
 
     init() {
